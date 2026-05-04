@@ -5,8 +5,13 @@ import { equalTo } from "../validators/equal-to.validator.js";
 import { AuthenticationFunctions } from "../controllers/authentication.controller.js";
 import { validate } from "../controllers/validator.controller.js";
 import { usedEmailValidator } from "../validators/used-email.validator.js";
-import { UserFunctions } from "../controllers/user.controller.js";
 
+/**
+ * Validation rules for user login.
+ *
+ * - Validates email format and existence in the system.
+ * - Ensures password is provided and meets minimum length requirements.
+ */
 const loginValidator = [
    body("email").trim().isEmail().normalizeEmail().bail().custom(emailExistsValidator()),
 
@@ -19,8 +24,16 @@ const loginValidator = [
       .withMessage("Password must be at least 6 characters"),
 ];
 
+/**
+ * Validation rules for user signup.
+ *
+ * - Validates email format and ensures it is not already used.
+ * - Ensures password meets requirements.
+ * - Confirms password matches confirmPassword field.
+ */
 const signupValidator = [
    body("email").trim().isEmail().normalizeEmail().bail().custom(usedEmailValidator()),
+
    body("password")
       .trim()
       .notEmpty()
@@ -28,6 +41,7 @@ const signupValidator = [
       .bail()
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters"),
+
    body("confirmPassword")
       .trim()
       .notEmpty()
@@ -36,22 +50,32 @@ const signupValidator = [
       .custom(equalTo("password")),
 ];
 
+/** Express router instance for authentication-related routes. */
 const router = express.Router();
 
+/**
+ * Returns a CSRF token for client-side usage.
+ */
 router.get("/csrf-token", AuthenticationFunctions.getCSRFToken);
 
-router.post("/login", loginValidator, validate, AuthenticationFunctions.login);
+/**
+ * Handles user login with validation middleware.
+ */
+router.post("/login", loginValidator, validate, AuthenticationFunctions.loginHandler);
 
-router.post(
-   "/signup",
-   signupValidator,
-   validate,
-   AuthenticationFunctions.signup,
-   UserFunctions.createUser,
-);
+/**
+ * Handles user signup with validation middleware.
+ */
+router.post("/signup", signupValidator, validate, AuthenticationFunctions.signupHandler);
 
+/**
+ * Handles user logout.
+ */
 router.post("/logout", AuthenticationFunctions.logout);
 
-router.get('/me', AuthenticationFunctions.loginCheck)
+/**
+ * Returns the currently authenticated user (session check).
+ */
+router.get("/me", AuthenticationFunctions.loginCheckHandler);
 
 export default router;

@@ -3,11 +3,11 @@ import { mongoConnect } from "./database/database.js";
 import session from "express-session";
 import users from "./routers/user.router.js";
 import auth from "./routers/auth.router.js";
+import decks from "./routers/deck.router.js";
 import MongoDBStore from "connect-mongodb-session";
 import { MONGODB_URL } from "./constants/mongodb-url.constant.js";
 import dotenv from "dotenv";
 import csurf from "csurf";
-0;
 import cookieParser from "cookie-parser";
 import { AuthenticationFunctions } from "./controllers/authentication.controller.js";
 
@@ -55,6 +55,8 @@ app.use(AuthenticationFunctions.enforceSessionLifetime);
 app.use("/authentication", auth);
 
 app.use("/users", users);
+
+app.use("/decks", decks);
 
 app.use((error, req, res, next) => {
    console.log(error);

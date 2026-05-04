@@ -3,17 +3,18 @@ import { User } from "./user.class.js";
 import { ObjectId } from "mongodb";
 
 /**
- * Repository responsible for handling persistence operations related to users.
- * Acts as a bridge between the domain layer and MongoDB.
- *
  * @class
+ * Repository responsible for handling persistence operations related to users.
+ *
+ * Acts as a bridge between the domain layer and MongoDB.
  */
 export class UserRepository {
-   /** @type {import("mongodb").Collection<import("mongodb").Document>} */
-   collection; // MongoDB collection for users
+   /** @type {import("mongodb").Collection<import("mongodb").Document>} MongoDB collection for users */
+   collection;
 
    /**
     * @param {import("mongodb").Db} db - MongoDB database instance
+    * @throws {Error} If database instance is not provided
     */
    constructor(db) {
       if (!db) {
@@ -21,6 +22,25 @@ export class UserRepository {
       }
 
       this.collection = db.collection("users");
+   }
+
+   /**
+    * Converts a string or ObjectId into a valid ObjectId instance.
+    *
+    * @param {string | ObjectId} id - Identifier to convert
+    * @returns {ObjectId}
+    * @throws {Error} When id type or format is invalid
+    */
+   toObjectId(id) {
+      if (typeof id !== "string" && !(id instanceof ObjectId)) {
+         throw new Error("Invalid id type");
+      }
+
+      try {
+         return typeof id === "string" ? new ObjectId(id) : id;
+      } catch {
+         throw new Error("Invalid ObjectId format");
+      }
    }
 
    /**
@@ -40,7 +60,7 @@ export class UserRepository {
 
       if (!doc) return null;
 
-      return this.toDomain(doc);
+      return this._toDomain(doc);
    }
 
    /**
@@ -59,7 +79,7 @@ export class UserRepository {
 
       if (!doc) return null;
 
-      return this.toDomain(doc);
+      return this._toDomain(doc);
    }
 
    /**
@@ -67,41 +87,44 @@ export class UserRepository {
     *
     * @param {User} user - User domain object
     * @returns {Promise<User>} The created user with assigned identifier
-    * @throws {Error} When user is invalid or already has an id
+    * @throws {Error} When user is invalid
     */
    async create(user) {
       if (!user) {
          throw new Error(`Invalid user object: ${typeof user}`);
       }
 
-      /*  if (user.id !== undefined && user.id !== null) {
-         throw new Error("User already has an identifier");
-      } */
-
-      const doc = this.toPersistence(user);
+      const doc = this._toPersistence(user);
       const result = await this.collection.insertOne(doc);
 
-      if (!user.id) user.id = result.insertedId.toString();
+      if (!user.id) {
+         user.id = result.insertedId.toString();
+      }
 
       return user;
    }
 
+   /**
+    * Updates a user with allowed fields only.
+    *
+    * @param {string | ObjectId} id
+    * @param {Partial<Record<string, any>>} changes
+    * @returns {Promise<User | null>}
+    * @throws {Error} If input is invalid
+    */
    async update(id, changes) {
       if (!id) {
          throw new Error("User id is required");
       }
 
       if (!changes || typeof changes !== "object") {
-         throw new Error("Changes object is required");
+         throw new Error("Invalid changes object");
       }
 
       const objectId = this.toObjectId(id);
-
-      const allowedFields = [...USER_FIELDS.UPDATE];
-
       const updateDoc = {};
 
-      for (const key of allowedFields) {
+      for (const key of USER_FIELDS.UPDATE) {
          if (changes[key] !== undefined) {
             updateDoc[key] = changes[key];
          }
@@ -110,6 +133,8 @@ export class UserRepository {
       if (Object.keys(updateDoc).length === 0) {
          throw new Error("No valid fields to update");
       }
+
+      updateDoc.updatedAt = new Date();
 
       const result = await this.collection.updateOne(
          { _id: objectId },
@@ -120,9 +145,7 @@ export class UserRepository {
          return null;
       }
 
-      const updatedDoc = await this.findById(id);
-
-      return updatedDoc;
+      return this.findById(id);
    }
 
    /**
@@ -144,12 +167,40 @@ export class UserRepository {
    }
 
    /**
+    * Increments the number of decks associated with a user.
+    *
+    * @param {string | ObjectId} userId
+    * @param {number} [amount=1]
+    * @returns {Promise<boolean | null>} True if updated, null if user not found
+    * @throws {Error} If input is invalid
+    */
+   async incrementDeckCount(userId, amount = 1) {
+      if (!userId) {
+         throw new Error("User id is required");
+      }
+
+      const _id = this.toObjectId(userId);
+
+      const result = await this.collection.updateOne(
+         { _id },
+         { $inc: { deckNumber: amount } },
+      );
+
+      if (result.matchedCount === 0) {
+         return null;
+      }
+
+      return true;
+   }
+
+   /**
     * Maps a MongoDB document to a domain User object.
     *
-    * @param {import("mongodb").WithId<import("mongodb").Document>} doc - MongoDB document
-    * @returns {User} User domain instance
+    * @private
+    * @param {import("mongodb").WithId<import("mongodb").Document>} doc
+    * @returns {User}
     */
-   toDomain(doc) {
+   _toDomain(doc) {
       return new User({
          id: doc._id.toString(),
          email: doc.email,
@@ -165,16 +216,21 @@ export class UserRepository {
          nickName: doc.nickName,
          deckNumber: doc.deckNumber,
          cardNumber: doc.cardNumber,
+         updatedAt: doc.updatedAt,
+         createdAt: doc.createdAt,
+         role: doc.role,
+         lastLogin: doc.lastLogin,
       });
    }
 
    /**
     * Maps a domain User object to a MongoDB document.
     *
-    * @param {User} user - User domain instance
-    * @returns {import("mongodb").Document} MongoDB document
+    * @private
+    * @param {User} user
+    * @returns {import("mongodb").Document}
     */
-   toPersistence(user) {
+   _toPersistence(user) {
       return {
          email: user.email,
          passwordHash: user.passwordHash,
@@ -189,25 +245,10 @@ export class UserRepository {
          nickName: user.nickName,
          deckNumber: user.deckNumber,
          cardNumber: user.cardNumber,
+         createdAt: user.createdAt,
+         updatedAt: user.updatedAt,
+         role: user.role,
+         lastLogin: user.lastLogin,
       };
-   }
-
-   /**
-    * Converts a value into a valid ObjectId instance.
-    *
-    * @param {string | ObjectId} id - Identifier to convert
-    * @returns {ObjectId} ObjectId instance
-    * @throws {Error} When id type or format is invalid
-    */
-   toObjectId(id) {
-      if (typeof id !== "string" && !(id instanceof ObjectId)) {
-         throw new Error("Invalid id type");
-      }
-
-      try {
-         return typeof id === "string" ? new ObjectId(id) : id;
-      } catch {
-         throw new Error("Invalid ObjectId format");
-      }
    }
 }

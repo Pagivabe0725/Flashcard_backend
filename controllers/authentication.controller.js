@@ -1,79 +1,111 @@
-import { ObjectId } from "mongodb";
 import { UserRepository } from "../classes/User/user-repository.class.js";
 import { getDb } from "../database/database.js";
-import bcrypt from "bcrypt";
-import session from "express-session";
 import dotenv from "dotenv";
+import { AuthService } from "../services/auth.service.js";
 
 dotenv.config({ path: "./environment/session.env" });
 
+/** Maximum allowed lifetime of a session in milliseconds (7 days). */
 const MAX_SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * Represents the custom session data stored in express-session.
+ *
  * @typedef {Object} MySession
- * @property {string} userId
- * @property {string} role
+ * @property {string} userId - Identifier of the authenticated user
+ * @property {string} role - Role of the authenticated user
  */
 
 /**
+ * Handles user signup.
+ *
+ * Creates a new user via AuthService and initializes session.
+ *
  * @param {import('express').Request & { session: import('express-session').Session & Partial<MySession> }} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
-const signup = async (req, res, next) => {
+const signupHandler = async (req, res, next) => {
    try {
-      const id = new ObjectId();
+      const db = getDb();
+      const userRepository = new UserRepository(db);
 
-      req.session.userId = id.toString();
-      req.id = id.toString();
-      delete req.confirmPassword;
-      next();
+      const user = await AuthService.signup(req.body, userRepository);
+
+      req.session.userId = user.id;
+
+      res.status(201).json({
+         message: "User signed up",
+         result: user.toJSON(),
+      });
    } catch (err) {
       next(err);
    }
 };
 
-const login = async (req, res, next) => {
+/**
+ * Handles user login.
+ *
+ * Authenticates the user, regenerates the session to prevent fixation,
+ * and sets session lifetime.
+ *
+ * @param {import('express').Request & { session: import('express-session').Session & Partial<MySession> }} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+const loginHandler = async (req, res, next) => {
    const db = getDb();
    const userRepository = new UserRepository(db);
-   const { email, password } = req.body;
 
-   const user = await userRepository.findByEmail(email);
+   try {
+      const user = await AuthService.login(req.body, userRepository);
 
-   if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-   }
-
-   const isValid = await bcrypt.compare(password, user.passwordHash);
-
-   if (!isValid) {
-      return res.status(401).json({ message: "Invalid credentials" });
-   }
-
-   req.session.regenerate((err) => {
-      if (err) {
-         return res.status(400).json({
-            message: "Login process failed",
+      // Regenerate session to prevent session fixation attacks
+      await new Promise((resolve, reject) => {
+         req.session.regenerate((err) => {
+            if (err) return reject(err);
+            resolve();
          });
-      } else {
-         req.session.userId = user.id;
-         req.session.cookie.maxAge = 1000 * 60 * 60 * 24;
-         req.csrfToken();
+      });
 
-         return res.status(200).json({
-            message: "User logged",
-            result: user.toJSON(),
-         });
-      }
-   });
+      req.session.userId = user.id;
+      req.session.cookie.maxAge = MAX_SESSION_LIFETIME;
+
+      return res.status(200).json({
+         message: "User logged",
+         result: user.toJSON(),
+      });
+   } catch (err) {
+      return next(err);
+   }
 };
 
+/**
+ * Generates and returns a CSRF token.
+ *
+ * Disables caching to ensure token freshness.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getCSRFToken = (req, res) => {
    res.set("Cache-Control", "no-store");
+   
    res.status(200).json({
       message: "CSRF Token generated",
       result: req.csrfToken(),
    });
 };
 
+/**
+ * Handles user logout.
+ *
+ * Destroys the current session and clears the session cookie.
+ *
+ * @param {import('express').Request & { session: import('express-session').Session & Partial<MySession> }} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 const logout = (req, res, next) => {
    if (!req.session.userId) {
       return res.status(401).json({
@@ -92,28 +124,19 @@ const logout = (req, res, next) => {
    });
 };
 
-const loginCheck = async (req, res, next) => {
+/**
+ * Checks whether the current session is valid and returns the authenticated user.
+ *
+ * @param {import('express').Request & { session: import('express-session').Session & Partial<MySession> }} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+const loginCheckHandler = async (req, res, next) => {
    try {
-      const { userId } = req.session;
-
-      if (!userId) {
-         return res.status(200).json({
-            message: "User did not log in",
-            result: false,
-         });
-      }
-
       const db = getDb();
       const userRepository = new UserRepository(db);
 
-      const user = await userRepository.findById(userId);
-
-      if (!user) {
-         return res.status(401).json({
-            message: "Invalid session",
-            result: false,
-         });
-      }
+      const user = await AuthService.loginCheck(req, userRepository);
 
       return res.status(200).json({
          message: "Session check was successful",
@@ -125,17 +148,26 @@ const loginCheck = async (req, res, next) => {
 };
 
 /**
+ * Represents the custom session data stored in express-session.
+ *
  * @typedef {Object} MySession
- * @property {string} userId
- * @property {string} role
+ * @property {string} userId - Identifier of the authenticated user
+ * @property {string} role - Role of the authenticated user
  */
 
 /**
+ * Middleware enforcing maximum session lifetime.
+ *
+ * If the session exceeds the allowed lifetime, it is destroyed.
+ *
  * @param {import('express').Request & { session: import('express-session').Session & Partial<MySession> }} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
 const enforceSessionLifetime = (req, res, next) => {
    const { createdAt } = req.session;
 
+   // Checks whether the session exceeded the maximum allowed lifetime
    if (Date.now() - createdAt > MAX_SESSION_LIFETIME) {
       return req.session.destroy((err) => {
          if (err) return next(err);
@@ -149,11 +181,14 @@ const enforceSessionLifetime = (req, res, next) => {
    next();
 };
 
+/**
+ * Collection of authentication-related handlers and middleware.
+ */
 export const AuthenticationFunctions = {
-   signup,
-   login,
+   signupHandler,
+   loginHandler,
    getCSRFToken,
    logout,
-   loginCheck,
+   loginCheckHandler,
    enforceSessionLifetime,
 };
