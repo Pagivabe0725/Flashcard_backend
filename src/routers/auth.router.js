@@ -1,8 +1,8 @@
 import express from "express";
 import { emailExistsValidator } from "../validators/email-exists.validator.js";
 import { body } from "express-validator";
-import { equalTo } from "../validators/equal-to.validator.js";
-import { AuthenticationFunctions } from "../controllers/authentication.controller.js";
+import { equalTo } from "../validators/equal-to.validator.js"; 
+import { AuthenticationFunctions } from "../controllers/authentication.controller.js"; 
 import { validate } from "../controllers/validator.controller.js";
 import { usedEmailValidator } from "../validators/used-email.validator.js";
 

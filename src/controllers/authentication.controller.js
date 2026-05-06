@@ -1,9 +1,6 @@
 import { UserRepository } from "../classes/User/user-repository.class.js";
 import { getDb } from "../database/database.js";
-import dotenv from "dotenv";
 import { AuthService } from "../services/auth.service.js";
-
-dotenv.config({ path: "./environment/session.env" });
 
 /** Maximum allowed lifetime of a session in milliseconds (7 days). */
 const MAX_SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -90,7 +87,7 @@ const loginHandler = async (req, res, next) => {
  */
 const getCSRFToken = (req, res) => {
    res.set("Cache-Control", "no-store");
-   
+
    res.status(200).json({
       message: "CSRF Token generated",
       result: req.csrfToken(),

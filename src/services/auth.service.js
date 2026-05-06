@@ -1,27 +1,25 @@
 import bcrypt from "bcrypt";
-import { UserService } from "./user.services.js";
+import { UserService } from "./user.service.js";
+import { HttpError } from "../classes/Error/httpError.class.js";
+
 
 const login = async ({ email, password }, userRepository) => {
-   const invalidCredentialsError = new Error("Invalid credentials");
+   const invalidCredentials = () => HttpError.unauthorized("Invalid credentials");
 
-   if (!email || typeof email !== "string") {
-      throw invalidCredentialsError;
-   }
-
-   if (!password || typeof password !== "string") {
-      throw invalidCredentialsError;
+   if (typeof email !== "string" || !email || typeof password !== "string" || !password) {
+      throw invalidCredentials();
    }
 
    const user = await userRepository.findByEmail(email);
 
    if (!user) {
-      throw invalidCredentialsError;
+      throw invalidCredentials();
    }
 
    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
 
    if (!isValidPassword) {
-      throw invalidCredentialsError;
+      throw invalidCredentials();
    }
 
    const lastLogin = new Date();
@@ -37,14 +35,14 @@ const loginCheck = async ({ session }, userRepository) => {
    const { userId } = session;
 
    if (!userId || typeof userId !== "string") {
-      throw new Error("Not authenticated");
+      throw HttpError.unauthorized("Not authenticated");
    }
 
    const user = await userRepository.findById(userId);
 
    if (!user) {
       session.destroy?.();
-      throw new Error("Session invalid");
+      throw HttpError.unauthorized("Session invalid");
    }
 
    return user;
@@ -59,18 +57,18 @@ const signup = async (props, userRepository) => {
    const { confirmPassword, ...userData } = props;
 
    if (!userData.password) {
-      throw new ValidationError("Password is required");
+      throw HttpError.unprocessable("Password is required");
    }
 
    if (!confirmPassword) {
-      throw new ValidationError("Confirm password is required");
+      throw HttpError.unprocessable("Confirm password is required");
    }
 
    if (confirmPassword !== userData.password) {
-      throw new ValidationError("Passwords do not match");
+      throw HttpError.unprocessable("Passwords do not match");
    }
 
-   userData.lastLogin = new Date()
+   userData.lastLogin = new Date();
    return UserService.create(userData, userRepository);
 };
 

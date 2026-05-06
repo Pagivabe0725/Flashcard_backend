@@ -1,4 +1,4 @@
-import { DeckRepository } from "../classes/deck/deck.repository.class.js";
+import { DeckRepository } from "../classes/Deck/deck.repository.class.js";
 import { UserRepository } from "../classes/User/user-repository.class.js";
 import { getDb } from "../database/database.js";
 import { DeckService } from "../services/deck.service.js";
@@ -69,11 +69,7 @@ const deleteHandler = async (req, res, next) => {
       const deckRepository = new DeckRepository(db);
       const userRepository = new UserRepository(db);
 
-      const deleted = await DeckService.deleteDeck(req, deckRepository, userRepository);
-
-      if (!deleted) {
-         throw new Error("Delete deck failed!");
-      }
+      await DeckService.deleteDeck(req, deckRepository, userRepository);
 
       res.status(200).json({
          message: "Delete deck was successful",

@@ -1,4 +1,5 @@
 import { USER_FIELDS } from "../../constants/user.constant.js";
+import { ClassError } from "../Error/classError.class.js";
 
 /**
  * Represents a User domain entity.
@@ -130,19 +131,23 @@ export class User {
    }
 
    /**
-    * Validates required user properties.
+    * Validates the user payload.
+    *
+    * Ensures:
+    * - props is a valid object
+    * - all required fields are present
     *
     * @param {Object} props
-    * @throws {Error} If any required field is missing
+    * @throws {ClassError} If the payload is invalid
     */
    static validate(props) {
       if (!props || typeof props !== "object") {
-         throw new Error("Invalid user payload");
+         throw ClassError.invalid("Invalid user payload", null, "User");
       }
 
       for (const field of USER_FIELDS.CONSTRUCTOR) {
          if (props[field] === undefined) {
-            throw new Error(`${field} is required`);
+            throw ClassError.required(`${field} is required`, null, "User");
          }
       }
    }

@@ -1,6 +1,6 @@
 import { UserRepository } from "../classes/User/user-repository.class.js";
-import { getDb } from "../database/database.js";
-import { UserService } from "../services/user.services.js";
+import { getDb } from "../database/database.js"; 
+import { UserService } from "../services/user.service.js"; 
 
 /**
  * Handles user creation.
@@ -98,7 +98,7 @@ const deleteUserHandler = async (req, res, next) => {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-const getUserByEmailHandler = async (req, res, next) => {
+/* const getUserByEmailHandler = async (req, res, next) => {
    try {
       const db = getDb();
       const userRepository = new UserRepository(db);
@@ -112,7 +112,7 @@ const getUserByEmailHandler = async (req, res, next) => {
    } catch (err) {
       next(err);
    }
-};
+}; */
 
 /**
  * Collection of user-related request handlers.
@@ -121,5 +121,5 @@ export const UserFunctions = {
    createUserHandler,
    updateUserHandler,
    deleteUserHandler,
-   getUserByEmailHandler,
+  /*  getUserByEmailHandler, */
 };

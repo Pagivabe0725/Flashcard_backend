@@ -1,5 +1,5 @@
 import mongodb from "mongodb";
-import { MONGODB_URL } from "../constants/mongodb-url.constant.js";
+
 import { initUserCollection } from "./user.collection.js";
 import { initDeckCollection } from "./deck.collection.js";
 import { initCardCollection } from "./card.collection.js";
@@ -25,7 +25,7 @@ let db;
  */
 export const mongoConnect = async () => {
    try {
-      client = await MongoClient.connect(MONGODB_URL);
+      client = await MongoClient.connect(process.env.MONGODB_URL);
       db = client.db();
 
       // Initialize collections and apply schema/index setup

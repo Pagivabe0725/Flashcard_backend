@@ -30,21 +30,25 @@ export class DeckRepository {
    }
 
    /**
-    * Converts a string or ObjectId into a valid ObjectId instance.
+    * Converts a value into a valid MongoDB ObjectId instance.
     *
-    * @param {string | ObjectId} id
-    * @returns {ObjectId}
-    * @throws {Error} If id type or format is invalid
+    * Accepts either:
+    * - a hexadecimal ObjectId string
+    * - an existing ObjectId instance
+    *
+    * @param {string | ObjectId} id - Identifier to convert
+    * @returns {ObjectId} Converted MongoDB ObjectId instance
+    * @throws {MongoError} If the identifier type or format is invalid
     */
    toObjectId(id) {
       if (typeof id !== "string" && !(id instanceof ObjectId)) {
-         throw new Error("Invalid id type");
+         throw new MongoError("Invalid id type", null, "ObjectId");
       }
 
       try {
          return typeof id === "string" ? new ObjectId(id) : id;
       } catch {
-         throw new Error("Invalid ObjectId format");
+         throw new MongoError("Invalid ObjectId format", null, "ObjectId");
       }
    }
 
@@ -97,19 +101,24 @@ export class DeckRepository {
    /**
     * Finds a deck by its identifier.
     *
-    * @param {string | ObjectId} id
-    * @returns {Promise<Deck | null>}
-    * @throws {Error} If id is invalid
+    * @param {string | ObjectId} id - Deck identifier
+    * @returns {Promise<Deck | null>} Found deck domain object or null if not found
+    * @throws {MongoError} If the identifier is invalid
     */
    async findById(id) {
       if (id === undefined || id === null) {
-         throw new Error(`Invalid identifier: ${typeof id}`);
+         throw new MongoError(`Invalid identifier: ${typeof id}`, null, "Deck");
       }
 
       const _id = this.toObjectId(id);
-      const doc = await this.collection.findOne({ _id });
 
-      if (!doc) return null;
+      const doc = await this.collection.findOne({
+         _id,
+      });
+
+      if (!doc) {
+         return null;
+      }
 
       return this._toDomain(doc);
    }
@@ -117,12 +126,12 @@ export class DeckRepository {
    /**
     * Finds decks by author with pagination support.
     *
-    * @param {string | ObjectId} authorId
-    * @param {Object} options
-    * @param {number} [options.page=1]
-    * @param {number} [options.limit=10]
-    * @param {string} [options.sortBy="createdAt"]
-    * @param {1 | -1} [options.order=-1]
+    * @param {string | ObjectId} authorId - Deck author identifier
+    * @param {Object} options - Pagination and sorting options
+    * @param {number} [options.page=1] - Current page number
+    * @param {number} [options.limit=10] - Maximum number of items per page
+    * @param {string} [options.sortBy="createdAt"] - Field used for sorting
+    * @param {1 | -1} [options.order=-1] - Sort direction
     *
     * @returns {Promise<{
     *   data: Deck[],
@@ -132,17 +141,24 @@ export class DeckRepository {
     *     limit: number,
     *     totalPages: number
     *   }
-    * }>}
+    * }>} Paginated deck result
+    *
+    * @throws {MongoError} If the author identifier is invalid
     */
    async findByAuthorIdPaginated(
       authorId,
       { page = 1, limit = 10, sortBy = "createdAt", order = -1 } = {},
    ) {
       if (!authorId) {
-         throw new Error(`Invalid author identifier: ${typeof authorId}`);
+         throw new MongoError(
+            `Invalid author identifier: ${typeof authorId}`,
+            null,
+            "Deck",
+         );
       }
 
       const _authorId = this.toObjectId(authorId);
+
       const skip = (page - 1) * limit;
 
       const [docs, total] = await Promise.all([
@@ -153,11 +169,14 @@ export class DeckRepository {
             .limit(limit)
             .toArray(),
 
-         this.collection.countDocuments({ authorId: _authorId }),
+         this.collection.countDocuments({
+            authorId: _authorId,
+         }),
       ]);
 
       return {
          data: docs.map((deck) => this._toDomain(deck)),
+
          pagination: {
             total,
             page,
@@ -168,26 +187,27 @@ export class DeckRepository {
    }
 
    /**
-    * Creates a new deck.
+    * Creates a new deck document in the database.
     *
-    * @param {Deck} deck
-    * @returns {Promise<Deck>}
-    * @throws {Error} If deck or author is invalid
+    * @param {Deck} deck - Deck domain object to create
+    * @returns {Promise<Deck>} Created deck domain object
+    * @throws {MongoError} If the deck object or author identifier is invalid
     */
    async create(deck) {
       if (!deck) {
-         throw new Error(`Invalid deck object: ${typeof deck}`);
+         throw new MongoError(`Invalid deck object: ${typeof deck}`, null, "Deck");
       }
 
-      const user = await this.db
-         .collection("users")
-         .findOne({ _id: this.toObjectId(deck.authorId) });
+      const user = await this.db.collection("users").findOne({
+         _id: this.toObjectId(deck.authorId),
+      });
 
       if (!user) {
-         throw new Error(`Invalid author identifier`);
+         throw new MongoError("Invalid author identifier", null, "Deck");
       }
 
       const doc = this._toPersistence(deck);
+
       const result = await this.collection.insertOne(doc);
 
       return this._toDomain({
@@ -197,20 +217,20 @@ export class DeckRepository {
    }
 
    /**
-    * Updates a deck with allowed fields only.
+    * Updates a deck using allowed fields only.
     *
-    * @param {string | ObjectId} id
-    * @param {Partial<Deck>} changes
-    * @returns {Promise<Deck | null>}
-    * @throws {Error} If input is invalid or deck not found
+    * @param {string | ObjectId} id - Deck identifier
+    * @param {Partial<Deck>} changes - Partial deck fields to update
+    * @returns {Promise<Deck | null>} Updated deck domain object or null if not found
+    * @throws {MongoError} If the identifier or update payload is invalid
     */
    async update(id, changes) {
       if (!id) {
-         throw new Error("Invalid deck id");
+         throw new MongoError("Invalid deck id", null, "Deck");
       }
 
       if (!changes || typeof changes !== "object") {
-         throw new Error("Invalid changes object");
+         throw new MongoError("Invalid changes object", null, "Deck");
       }
 
       const updateDoc = {};
@@ -222,7 +242,7 @@ export class DeckRepository {
       }
 
       if (Object.keys(updateDoc).length === 0) {
-         throw new Error("No valid fields to update");
+         throw new MongoError("No valid fields to update", null, "Deck");
       }
 
       updateDoc.updatedAt = new Date();
@@ -232,7 +252,7 @@ export class DeckRepository {
       const result = await this.collection.updateOne({ _id }, { $set: updateDoc });
 
       if (result.matchedCount === 0) {
-         throw new Error("Deck not found");
+         return null;
       }
 
       return this.findById(id);
@@ -241,17 +261,20 @@ export class DeckRepository {
    /**
     * Deletes a deck by its identifier.
     *
-    * @param {string | ObjectId} id
-    * @returns {Promise<boolean>} True if deleted
-    * @throws {Error} If id is invalid
+    * @param {string | ObjectId} id - Deck identifier
+    * @returns {Promise<boolean>} True if the deck was deleted successfully
+    * @throws {MongoError} If the identifier is invalid
     */
    async delete(id) {
       if (!id) {
-         throw new Error("Invalid deck id");
+         throw new MongoError("Invalid deck id", null, "Deck");
       }
 
       const _id = this.toObjectId(id);
-      const result = await this.collection.deleteOne({ _id });
+
+      const result = await this.collection.deleteOne({
+         _id,
+      });
 
       return result.deletedCount === 1;
    }

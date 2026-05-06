@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
+
 import express from "express";
 import { mongoConnect } from "./database/database.js";
 import session from "express-session";
@@ -5,24 +8,23 @@ import users from "./routers/user.router.js";
 import auth from "./routers/auth.router.js";
 import decks from "./routers/deck.router.js";
 import MongoDBStore from "connect-mongodb-session";
-import { MONGODB_URL } from "./constants/mongodb-url.constant.js";
-import dotenv from "dotenv";
+
 import csurf from "csurf";
 import cookieParser from "cookie-parser";
 import { AuthenticationFunctions } from "./controllers/authentication.controller.js";
+import { errorHandler } from "./controllers/error.controller.js";
 
 const csrfProtection = csurf();
 
 const SESSION_EXPIRE_DAYS = 1;
 
-dotenv.config({ path: "./environment/session.env" });
-
+console.log(process.env);
 const app = express();
 
 const MongoDBStoreSession = MongoDBStore(session);
 
 const store = new MongoDBStoreSession({
-   uri: MONGODB_URL,
+   uri: process.env.MONGODB_URL,
    collection: "session",
    expires: 1000 * 60 * 60 * 3,
 });
@@ -58,13 +60,7 @@ app.use("/users", users);
 
 app.use("/decks", decks);
 
-app.use((error, req, res, next) => {
-   console.log(error);
-   const status = error.statusCode || 500;
-   const message = error.message;
-   const data = error.data;
-   res.status(status).json({ message: message, data: data });
-});
+app.use(errorHandler);
 
 const startServer = async () => {
    try {

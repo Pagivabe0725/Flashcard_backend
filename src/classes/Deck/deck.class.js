@@ -1,4 +1,5 @@
 import { DECK_FIELDS } from "../../constants/deck.constant.js";
+import { ClassError } from "../Error/classError.class.js";
 
 /**
  * Represents a flashcard deck entity.
@@ -10,7 +11,7 @@ export class Deck {
    /** @type {string} Unique identifier of the deck. */
    id;
 
-   /** @type {string} Identifier of the deck creator (not necessarily exclusive owner). */
+   /** @type {string} Identifier of the deck creator. */
    authorId;
 
    /** @type {string} Title of the deck. */
@@ -22,41 +23,41 @@ export class Deck {
    /** @type {string | null} Detailed description of the deck. */
    fullDescription;
 
-   /** @type {Date} Creation timestamp of the deck. */
+   /** @type {Date} Timestamp indicating when the deck was created. */
    createdAt;
 
-   /** @type {Date} Last update timestamp of the deck. */
+   /** @type {Date} Timestamp indicating when the deck was last updated. */
    updatedAt;
 
    /** @type {boolean} Indicates whether the deck is publicly accessible. */
    isPublic;
 
-   /** @type {string} Category of the deck. */
+   /** @type {string} Category assigned to the deck. */
    category;
 
-   /** @type {string[] | null} List of tags associated with the deck. */
+   /** @type {string[] | null} Tags associated with the deck. */
    tags;
 
-   /** @type {string | null} URL of the deck's cover image. */
+   /** @type {string | null} URL of the deck cover image. */
    coverImageUrl;
 
    /**
     * Creates a new Deck instance.
     *
-    * @param {Object} props - Initialization properties.
-    * @param {string} props.id - Unique identifier of the deck.
-    * @param {string} props.authorId - Identifier of the creator.
-    * @param {string} props.title - Title of the deck.
-    * @param {string | null} [props.shortDescription]
-    * @param {string | null} [props.fullDescription]
-    * @param {Date} [props.createdAt]
-    * @param {Date} [props.updatedAt]
-    * @param {boolean} [props.isPublic]
-    * @param {string} props.category
-    * @param {string[] | null} [props.tags]
-    * @param {string | null} [props.coverImageUrl]
+    * @param {Object} props - Deck initialization properties
+    * @param {string} props.id - Unique identifier of the deck
+    * @param {string} props.authorId - Identifier of the deck creator
+    * @param {string} props.title - Deck title
+    * @param {string | null} [props.shortDescription=null] - Short summary description
+    * @param {string | null} [props.fullDescription=null] - Detailed deck description
+    * @param {Date} [props.createdAt=new Date()] - Deck creation timestamp
+    * @param {Date} [props.updatedAt=new Date()] - Last update timestamp
+    * @param {boolean} [props.isPublic=false] - Visibility state of the deck
+    * @param {string} props.category - Deck category
+    * @param {string[] | null} [props.tags=null] - Associated deck tags
+    * @param {string | null} [props.coverImageUrl=null] - Cover image URL
     *
-    * @throws {Error} If required fields are missing.
+    * @throws {ClassError} If required fields are missing or invalid
     */
    constructor(props) {
       Deck.validate(props);
@@ -89,23 +90,27 @@ export class Deck {
    }
 
    /**
-    * Validates the required constructor properties.
+    * Validates the required deck properties.
     *
-    * @param {Object} props - Properties to validate.
-    * @throws {Error} If any required field is missing.
+    * @param {Object} props - Deck properties to validate
+    * @throws {ClassError} If the payload or required fields are invalid
     */
    static validate(props) {
+      if (!props || typeof props !== "object") {
+         throw ClassError.invalid("Invalid deck payload", null, "Deck");
+      }
+
       for (const field of DECK_FIELDS.CONSTRUCTOR) {
          if (props[field] === undefined) {
-            throw new Error(`${field} is required`);
+            throw ClassError.required(`${field} is required`, null, "Deck");
          }
       }
    }
 
    /**
-    * Serializes the deck into a plain JSON object.
+    * Serializes the deck into a plain object representation.
     *
-    * @returns {Object} Serialized deck data.
+    * @returns {Object} Serialized deck data
     */
    toJSON() {
       return {

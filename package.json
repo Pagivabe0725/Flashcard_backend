@@ -1,10 +1,11 @@
 {
   "name": "flashcard_backend",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "src/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "cls && nodemon app.js"
+    "start": "cls && nodemon src/app.js",
+    "dev": "cross-env NODE_ENV=development nodemon src/app.js"
   },
   "author": "Kovács Patrik",
   "license": "ISC",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
+    "cross-env": "^10.1.0",
     "typescript": "^6.0.3"
   }
 }

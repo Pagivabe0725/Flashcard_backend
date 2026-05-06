@@ -1,20 +1,19 @@
 import { USER_FIELDS } from "../../constants/user.constant.js";
+import { MongoError } from "../Error/mongoError.class.js";
 import { User } from "./user.class.js";
 import { ObjectId } from "mongodb";
 
 /**
- * @class
- * Repository responsible for handling persistence operations related to users.
+ * Repository responsible for user persistence operations.
  *
  * Acts as a bridge between the domain layer and MongoDB.
  */
 export class UserRepository {
-   /** @type {import("mongodb").Collection<import("mongodb").Document>} MongoDB collection for users */
-   collection;
-
    /**
+    * Creates a new user repository instance.
+    *
     * @param {import("mongodb").Db} db - MongoDB database instance
-    * @throws {Error} If database instance is not provided
+    * @throws {Error} If the database instance is missing
     */
    constructor(db) {
       if (!db) {
@@ -25,40 +24,49 @@ export class UserRepository {
    }
 
    /**
-    * Converts a string or ObjectId into a valid ObjectId instance.
+    * Converts a value into a valid MongoDB ObjectId instance.
+    *
+    * Accepts either:
+    * - a hexadecimal ObjectId string
+    * - an existing ObjectId instance
     *
     * @param {string | ObjectId} id - Identifier to convert
-    * @returns {ObjectId}
-    * @throws {Error} When id type or format is invalid
+    * @returns {ObjectId} Converted MongoDB ObjectId instance
+    * @throws {MongoError} If the identifier type or format is invalid
     */
    toObjectId(id) {
       if (typeof id !== "string" && !(id instanceof ObjectId)) {
-         throw new Error("Invalid id type");
+         throw new MongoError("Invalid id type", null, "ObjectId");
       }
 
       try {
          return typeof id === "string" ? new ObjectId(id) : id;
       } catch {
-         throw new Error("Invalid ObjectId format");
+         throw new MongoError("Invalid ObjectId format", null, "ObjectId");
       }
    }
 
    /**
-    * Finds a user by its identifier.
+    * Finds a user by identifier.
     *
     * @param {string | ObjectId} id - User identifier
-    * @returns {Promise<User | null>} The found user or null if not found
-    * @throws {Error} When id is invalid
+    * @returns {Promise<User | null>} Found user domain object or null if not found
+    * @throws {MongoError} If the identifier is invalid
     */
    async findById(id) {
       if (id === undefined || id === null) {
-         throw new Error(`Invalid identifier: ${typeof id}`);
+         throw new MongoError("Invalid identifier", null, "User");
       }
 
       const objectId = this.toObjectId(id);
-      const doc = await this.collection.findOne({ _id: objectId });
 
-      if (!doc) return null;
+      const doc = await this.collection.findOne({
+         _id: objectId,
+      });
+
+      if (!doc) {
+         return null;
+      }
 
       return this._toDomain(doc);
    }
@@ -66,35 +74,40 @@ export class UserRepository {
    /**
     * Finds a user by email address.
     *
-    * @param {string} email - User email
-    * @returns {Promise<User | null>} The found user or null if not found
-    * @throws {Error} When email is invalid
+    * @param {string} email - User email address
+    * @returns {Promise<User | null>} Found user domain object or null if not found
+    * @throws {MongoError} If the email is invalid
     */
    async findByEmail(email) {
       if (email === undefined || email === null) {
-         throw new Error(`Invalid email: ${typeof email}`);
+         throw new MongoError("Invalid email", null, "User");
       }
 
-      const doc = await this.collection.findOne({ email });
+      const doc = await this.collection.findOne({
+         email,
+      });
 
-      if (!doc) return null;
+      if (!doc) {
+         return null;
+      }
 
       return this._toDomain(doc);
    }
 
    /**
-    * Creates a new user in the database.
+    * Creates a new user document in the database.
     *
-    * @param {User} user - User domain object
-    * @returns {Promise<User>} The created user with assigned identifier
-    * @throws {Error} When user is invalid
+    * @param {User} user - User domain object to create
+    * @returns {Promise<User>} Created user with assigned identifier
+    * @throws {MongoError} If the user object is invalid
     */
    async create(user) {
       if (!user) {
-         throw new Error(`Invalid user object: ${typeof user}`);
+         throw new MongoError("Invalid user object", null, "User");
       }
 
       const doc = this._toPersistence(user);
+
       const result = await this.collection.insertOne(doc);
 
       if (!user.id) {
@@ -105,23 +118,24 @@ export class UserRepository {
    }
 
    /**
-    * Updates a user with allowed fields only.
+    * Updates a user using allowed fields only.
     *
-    * @param {string | ObjectId} id
-    * @param {Partial<Record<string, any>>} changes
-    * @returns {Promise<User | null>}
-    * @throws {Error} If input is invalid
+    * @param {string | ObjectId} id - User identifier
+    * @param {Partial<Record<string, any>>} changes - Partial user fields to update
+    * @returns {Promise<User | null>} Updated user domain object or null if not found
+    * @throws {MongoError} If the identifier or update payload is invalid
     */
    async update(id, changes) {
       if (!id) {
-         throw new Error("User id is required");
+         throw new MongoError("User id is required", null, "User");
       }
 
       if (!changes || typeof changes !== "object") {
-         throw new Error("Invalid changes object");
+         throw new MongoError("Invalid changes object", null, "User");
       }
 
       const objectId = this.toObjectId(id);
+
       const updateDoc = {};
 
       for (const key of USER_FIELDS.UPDATE) {
@@ -131,7 +145,7 @@ export class UserRepository {
       }
 
       if (Object.keys(updateDoc).length === 0) {
-         throw new Error("No valid fields to update");
+         throw new MongoError("No valid fields to update", null, "User");
       }
 
       updateDoc.updatedAt = new Date();
@@ -152,31 +166,38 @@ export class UserRepository {
     * Deletes a user by identifier.
     *
     * @param {string | ObjectId} id - User identifier
-    * @returns {Promise<boolean>} True if deletion was successful
-    * @throws {Error} When id is invalid
+    * @returns {Promise<boolean>} True if the user was deleted successfully
+    * @throws {MongoError} If the identifier is invalid
     */
    async delete(id) {
       if (id === undefined || id === null) {
-         throw new Error(`Invalid identifier: ${typeof id}`);
+         throw new MongoError("Invalid identifier", null, "User");
       }
 
       const objectId = this.toObjectId(id);
-      const result = await this.collection.deleteOne({ _id: objectId });
+
+      const result = await this.collection.deleteOne({
+         _id: objectId,
+      });
 
       return result.deletedCount === 1;
    }
 
    /**
-    * Increments the number of decks associated with a user.
+    * Increments the user's deck counter.
     *
-    * @param {string | ObjectId} userId
-    * @param {number} [amount=1]
-    * @returns {Promise<boolean | null>} True if updated, null if user not found
-    * @throws {Error} If input is invalid
+    * @param {string | ObjectId} userId - User identifier
+    * @param {number} [amount=1] - Amount to increment the deck counter by
+    * @returns {Promise<boolean | null>} True if updated successfully or null if the user was not found
+    * @throws {MongoError} If the input data is invalid
     */
    async incrementDeckCount(userId, amount = 1) {
       if (!userId) {
-         throw new Error("User id is required");
+         throw new MongoError("User id is required", null, "User");
+      }
+
+      if (typeof amount !== "number" || Number.isNaN(amount)) {
+         throw new MongoError("Invalid increment amount", null, "User");
       }
 
       const _id = this.toObjectId(userId);
