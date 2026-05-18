@@ -95,23 +95,37 @@ export class UserRepository {
    }
 
    /**
-    * Creates a new user document in the database.
+    * Creates and persists a new user document in MongoDB.
     *
-    * @param {User} user - User domain object to create
-    * @returns {Promise<User>} Created user with assigned identifier
-    * @throws {MongoError} If the user object is invalid
+    * If an `id` is provided in the input properties, it is converted to a MongoDB
+    * ObjectId and used as the document `_id`. Otherwise, a new ObjectId is generated.
+    *
+    * The generated MongoDB identifier is synchronized with the domain `User` entity
+    * to ensure consistency between the domain layer and persistence layer.
+    *
+    * @param {Object} props - User properties used to construct the domain entity
+    * @returns {Promise<User>} The created user domain entity
+    * @throws {MongoError} Thrown when the input is invalid or insertion fails
     */
-   async create(user) {
-      if (!user) {
+   async create(props) {
+      if (!props) {
          throw new MongoError("Invalid user object", null, "User");
       }
 
-      const doc = this._toPersistence(user);
+      const { id, ...userProps } = props;
 
-      const result = await this.collection.insertOne(doc);
+      const _id = this.toObjectId(id);
 
-      if (!user.id) {
-         user.id = result.insertedId.toString();
+      const user = new User({ id: _id.toString(), ...userProps });
+
+      const result = await this.collection.insertOne({
+         _id,
+         ...this._toPersistence(user),
+      });
+
+
+      if (result.insertedId.toString() !== user.id) {
+         throw new MongoError("Failed to create user", null, "User");
       }
 
       return user;
@@ -196,7 +210,7 @@ export class UserRepository {
          throw new MongoError("User id is required", null, "User");
       }
 
-      if (typeof amount !== "number" || Number.isNaN(amount)) {
+      if (typeof amount !== "number" || Number.isNaN(amount)) { 
          throw new MongoError("Invalid increment amount", null, "User");
       }
 

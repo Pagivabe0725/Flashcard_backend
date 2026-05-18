@@ -3,6 +3,7 @@ import { UserFunctions } from "../controllers/user.controller.js";
 import { body } from "express-validator";
 import { usedEmailValidator } from "../validators/used-email.validator.js";
 import { validate } from "../controllers/validator.controller.js";
+import { handleResponse } from "../controllers/response.controller.js";
 
 /** Express router instance for user-related routes. */
 const router = express.Router();
@@ -14,12 +15,7 @@ const router = express.Router();
  * - Ensures password meets minimum length requirements.
  */
 const createUserValidator = [
-   body("email")
-      .trim()
-      .isEmail()
-      .normalizeEmail()
-      .bail()
-      .custom(usedEmailValidator()),
+   body("email").trim().isEmail().normalizeEmail().bail().custom(usedEmailValidator()),
 
    body("password")
       .trim()
@@ -35,20 +31,26 @@ const createUserValidator = [
  *
  * POST /users
  */
-router.post("/", createUserValidator, validate, UserFunctions.createUserHandler);
+router.post(
+   "/",
+   createUserValidator,
+   validate,
+   UserFunctions.createUserHandler,
+   handleResponse,
+);
 
 /**
  * Updates an existing user by its identifier.
  *
  * PATCH /users/:id
  */
-router.patch("/:id", UserFunctions.updateUserHandler);
+router.patch("/:id", UserFunctions.updateUserHandler, handleResponse);
 
 /**
  * Deletes a user by its identifier.
  *
  * DELETE /users/:id
  */
-router.delete("/:id", UserFunctions.deleteUserHandler);
+router.delete("/:id", UserFunctions.deleteUserHandler, handleResponse);
 
 export default router;

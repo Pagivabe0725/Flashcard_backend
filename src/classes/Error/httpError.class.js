@@ -1,3 +1,4 @@
+import { HTTP_STATUS } from "../../constants/http-status.constant.js";
 import { AppError } from "./appError.class.js";
 
 export class HttpError extends AppError {

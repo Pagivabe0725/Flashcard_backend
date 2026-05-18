@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { Deck } from "./deck.class.js";
 import { DECK_FIELDS } from "../../constants/deck.constant.js";
+import { MongoError } from "../Error/mongoError.class.js";
 
 /**
  * @class
@@ -123,6 +124,28 @@ export class DeckRepository {
       return this._toDomain(doc);
    }
 
+   async existsByAuthorId(authorId) {
+      if (authorId === undefined || authorId === null)
+         throw new MongoError(
+            `Invalid author identifier: ${typeof authorId}`,
+            null,
+            "Deck",
+         );
+
+      const _authorId = this.toObjectId(authorId);
+
+      const result = await this.collection.findOne(
+         { authorId: _authorId },
+         {
+            projection: {
+               _id: 1,
+            },
+         },
+      );
+
+      return !!result;
+   }
+
    /**
     * Finds decks by author with pagination support.
     *
@@ -187,19 +210,40 @@ export class DeckRepository {
    }
 
    /**
-    * Creates a new deck document in the database.
+    * Creates and persists a new deck document.
     *
-    * @param {Deck} deck - Deck domain object to create
-    * @returns {Promise<Deck>} Created deck domain object
-    * @throws {MongoError} If the deck object or author identifier is invalid
+    * - Validates the provided deck entity.
+    * - Converts the author identifier into a MongoDB ObjectId.
+    * - Verifies that the referenced author exists.
+    * - Persists the deck document into the collection.
+    * - Maps the persisted document back into a domain entity.
+    *
+    * @param {Deck} deck - Deck domain entity to persist
+    * @returns {Promise<Deck>} Persisted deck domain entity
+    * @throws {MongoError} Thrown when:
+    * - the deck object is invalid
+    * - the author identifier cannot be converted to ObjectId
+    * - the referenced author does not exist
     */
    async create(deck) {
       if (!deck) {
          throw new MongoError(`Invalid deck object: ${typeof deck}`, null, "Deck");
       }
 
+      let authorId;
+
+      try {
+         authorId = this.toObjectId(deck.authorId);
+      } catch (error) {
+         throw new MongoError(
+            "Invalid author identifier",
+            { originalError: error },
+            "Deck",
+         );
+      }
+
       const user = await this.db.collection("users").findOne({
-         _id: this.toObjectId(deck.authorId),
+         _id: authorId,
       });
 
       if (!user) {
@@ -277,5 +321,41 @@ export class DeckRepository {
       });
 
       return result.deletedCount === 1;
+   }
+
+   /**
+    * Deletes all decks that belong to the specified author.
+    *
+    * @async
+    * @param {string|ObjectId} authorId - The identifier of the author.
+    * @returns {Promise<number>} The number of deleted decks.
+    * @throws {MongoError} If the author identifier is invalid.
+    */
+   async deleteAllByAuthorId(authorId) {
+      if (authorId === undefined || authorId === null)
+         throw new MongoError(
+            `Invalid author identifier: ${typeof authorId}`,
+            null,
+            "Deck",
+         );
+
+      const _authorId = this.toObjectId(authorId);
+
+      const decks = await this.collection
+         .find(
+            { authorId: _authorId },
+            {
+               projection: {
+                  _id: 1,
+               },
+            },
+         )
+         .toArray();
+
+      const deckIds = decks.map((deck) => deck._id.toString());
+
+      const result = await this.collection.deleteMany({ authorId: _authorId });
+
+      return result.deletedCount;
    }
 }

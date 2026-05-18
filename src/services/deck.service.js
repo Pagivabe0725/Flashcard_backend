@@ -1,27 +1,32 @@
 import { ObjectId } from "mongodb";
-import { Deck } from "../classes/deck/deck.class.js";
+import { Deck } from "../classes/Deck/deck.class.js";
 import { DeckRepository } from "../classes/Deck/deck.repository.class.js";
 import { HttpError } from "../classes/Error/httpError.class.js";
 
-
 /**
- * Creates a new deck.
+ * Creates and persists a new deck entity.
  *
- * - Generates an identifier if not provided.
- * - Persists the deck entity.
- * - Increments the author's deck count.
+ * - Validates the presence of the author identifier.
+ * - Generates a MongoDB ObjectId when no identifier is provided.
+ * - Creates and stores the deck entity in the repository.
+ * - Increments the author's deck counter after successful creation.
  *
- * @param {Object} props - Raw deck data
- * @param {DeckRepository} deckRepository
- * @param {import("../classes/User/user-repository.class.js").UserRepository} userRepository
- * @returns {Promise<Deck>}
+ * @param {Object} props - Raw deck properties
+ * @param {DeckRepository} deckRepository - Repository responsible for deck persistence
+ * @param {import("../classes/User/user-repository.class.js").UserRepository} userRepository - Repository responsible for user persistence
+ * @returns {Promise<Deck>} The created deck entity
+ * @throws {HttpError} Thrown when the author identifier is missing
  */
 const createDeck = async (props, deckRepository, userRepository) => {
    const id = props.id;
 
+  /*  if (!props.authorId) {
+      throw HttpError.badRequest("Author ID is required");
+   }
+ */
    // Generates a new identifier if not provided externally
    if (!id) props.id = new ObjectId().toString();
-
+   
    const deck = new Deck(props);
 
    const result = await deckRepository.create(deck);

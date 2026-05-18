@@ -20,12 +20,16 @@ let db;
  * - Connects to the database using the configured connection string.
  * - Initializes all required collections with schema validation and indexes.
  *
+ * @async
  * @returns {Promise<void>}
  * @throws {Error} If connection or initialization fails
  */
 export const mongoConnect = async () => {
    try {
-      client = await MongoClient.connect(process.env.MONGODB_URL);
+      client = await MongoClient.connect(
+         process.env.MONGODB_URL,
+      );
+
       db = client.db();
 
       // Initialize collections and apply schema/index setup
@@ -49,9 +53,26 @@ export const mongoConnect = async () => {
  * @throws {Error} If database connection is not initialized
  */
 export const getDb = () => {
-   if (!db) {
+   if (!db)
       throw new Error("No database found!");
-   }
 
    return db;
+};
+
+/**
+ * Returns the active MongoDB client instance.
+ *
+ * The client is required for:
+ * - starting MongoDB sessions
+ * - handling transactions
+ * - low-level connection access
+ *
+ * @returns {mongodb.MongoClient}
+ * @throws {Error} If Mongo client is not initialized
+ */
+export const getClient = () => {
+   if (!client)
+      throw new Error("No Mongo client found!");
+
+   return client;
 };

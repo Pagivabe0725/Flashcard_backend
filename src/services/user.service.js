@@ -53,8 +53,12 @@ const create = async (props, userRepository) => {
    return userRepository.create(user);
 };
 
-const update = async ({ body, params }, userRepository) => {
+const update = async ({ body, params, session }, userRepository) => {
    const id = params?.id;
+
+   if (!session || !session.userId) {
+      throw HttpError.unauthorized();
+   }
 
    if (!id) {
       throw HttpError.badRequest("Invalid user identifier");
@@ -76,6 +80,10 @@ const update = async ({ body, params }, userRepository) => {
       throw HttpError.notFound("User not found");
    }
 
+   if (existingUser.id !== session.userId) {
+      throw HttpError.forbidden("You can only update your own account");
+   }
+
    if (Object.keys(changes).length === 0) {
       throw HttpError.badRequest("No fields provided for update");
    }
@@ -83,20 +91,31 @@ const update = async ({ body, params }, userRepository) => {
    return userRepository.update(id, changes);
 };
 
-const destroy = async ({ params }, userRepository) => {
+const destroy = async ({ params }, userRepository, deckRepository) => {
    const id = params?.id;
 
    if (!id) {
       throw HttpError.badRequest("Invalid user identifier");
    }
 
-   const result = await userRepository.delete(id);
+   const deleted = await userRepository.delete(id);
 
-   if (!result) {
+   if (!deleted) {
       throw HttpError.notFound("User not found");
    }
 
-   return null; // 204
+   let numberOfDecksDeleted = 0;
+
+   const hasDecks = await deckRepository.existsByAuthorId(id);
+
+   if (hasDecks) {
+      numberOfDecksDeleted = await deckRepository.deleteAllByAuthorId(id);
+   }
+
+   return {
+      success: true,
+      decksDeleted: numberOfDecksDeleted,
+   };
 };
 
 /**

@@ -69,7 +69,9 @@ const signup = async (props, userRepository) => {
    }
 
    userData.lastLogin = new Date();
-   return UserService.create(userData, userRepository);
+   const user = await UserService.create(userData, userRepository);
+   console.log("User created:", user.toJSON());
+   return user
 };
 
 export const AuthService = {

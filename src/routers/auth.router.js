@@ -5,6 +5,7 @@ import { equalTo } from "../validators/equal-to.validator.js";
 import { AuthenticationFunctions } from "../controllers/authentication.controller.js"; 
 import { validate } from "../controllers/validator.controller.js";
 import { usedEmailValidator } from "../validators/used-email.validator.js";
+import { handleResponse } from "../controllers/response.controller.js";
 
 /**
  * Validation rules for user login.
@@ -56,26 +57,25 @@ const router = express.Router();
 /**
  * Returns a CSRF token for client-side usage.
  */
-router.get("/csrf-token", AuthenticationFunctions.getCSRFToken);
+router.get("/csrf-token", AuthenticationFunctions.getCSRFToken, handleResponse);
 
 /**
  * Handles user login with validation middleware.
  */
-router.post("/login", loginValidator, validate, AuthenticationFunctions.loginHandler);
+router.post("/login", loginValidator, validate, AuthenticationFunctions.loginHandler, handleResponse);
 
 /**
  * Handles user signup with validation middleware.
  */
-router.post("/signup", signupValidator, validate, AuthenticationFunctions.signupHandler);
+router.post("/signup", signupValidator, validate, AuthenticationFunctions.signupHandler, handleResponse);
 
 /**
  * Handles user logout.
  */
-router.post("/logout", AuthenticationFunctions.logout);
-
+router.post("/logout", AuthenticationFunctions.logout, handleResponse);
 /**
  * Returns the currently authenticated user (session check).
  */
-router.get("/me", AuthenticationFunctions.loginCheckHandler);
+router.get("/me", AuthenticationFunctions.loginCheckHandler, handleResponse);
 
 export default router;

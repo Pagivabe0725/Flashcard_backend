@@ -6,11 +6,13 @@ import { DeckService } from "../services/deck.service.js";
 /**
  * Handles deck creation.
  *
- * Creates a new deck using DeckService and returns the created entity.
+ * Creates a new deck using DeckService and stores
+ * the response payload in `res.locals`.
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
+ * @returns {Promise<void>}
  */
 const createHandler = async (req, res, next) => {
    try {
@@ -20,10 +22,13 @@ const createHandler = async (req, res, next) => {
 
       const deck = await DeckService.createDeck(req.body, deckRepository, userRepository);
 
-      res.status(201).json({
-         message: "Deck created successfully",
-         result: deck.toJSON(),
-      });
+      res.locals.status = 201;
+
+      res.locals.message = "Deck created successfully";
+
+      res.locals.result = deck.toJSON();
+
+      next();
    } catch (err) {
       next(err);
    }
@@ -32,11 +37,13 @@ const createHandler = async (req, res, next) => {
 /**
  * Handles deck update.
  *
- * Updates an existing deck based on request data.
+ * Updates an existing deck using DeckService and stores
+ * the response payload in `res.locals`.
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
+ * @returns {Promise<void>}
  */
 const updateHandler = async (req, res, next) => {
    try {
@@ -45,10 +52,13 @@ const updateHandler = async (req, res, next) => {
 
       const deck = await DeckService.updateDeck(req, deckRepository);
 
-      res.status(200).json({
-         message: "Deck updated successfully",
-         result: deck.toJSON(),
-      });
+      res.locals.status = 200;
+
+      res.locals.message = "Deck updated successfully";
+
+      res.locals.result = deck.toJSON();
+
+      next();
    } catch (err) {
       next(err);
    }
@@ -57,11 +67,13 @@ const updateHandler = async (req, res, next) => {
 /**
  * Handles deck deletion.
  *
- * Deletes a deck and returns success status.
+ * Deletes a deck using DeckService and stores
+ * the response payload in `res.locals`.
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
+ * @returns {Promise<void>}
  */
 const deleteHandler = async (req, res, next) => {
    try {
@@ -71,10 +83,13 @@ const deleteHandler = async (req, res, next) => {
 
       await DeckService.deleteDeck(req, deckRepository, userRepository);
 
-      res.status(200).json({
-         message: "Delete deck was successful",
-         result: true,
-      });
+      res.locals.status = 200;
+
+      res.locals.message = "Delete deck was successful";
+
+      res.locals.result = true;
+
+      next();
    } catch (err) {
       next(err);
    }
@@ -120,10 +135,12 @@ const findDecksHandler = async (req, res, next) => {
  * Retrieves a single deck by its identifier.
  *
  * Uses request params and session for access control.
+ * The response payload is stored in `res.locals`.
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
+ * @returns {Promise<void>}
  */
 const findDeckHandler = async (req, res, next) => {
    try {
@@ -138,10 +155,13 @@ const findDeckHandler = async (req, res, next) => {
          deckRepository,
       );
 
-      res.status(200).json({
-         message: "Deck retrieved successfully",
-         result: result.toJSON(),
-      });
+      res.locals.status = 200;
+
+      res.locals.message = "Deck retrieved successfully";
+
+      res.locals.result = result.toJSON();
+
+      next();
    } catch (err) {
       next(err);
    }

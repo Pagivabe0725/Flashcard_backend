@@ -12,14 +12,14 @@ import { validationResult } from "express-validator";
  * @param {import('express').NextFunction} next
  */
 export const validate = (req, res, next) => {
-  const errors = validationResult(req);
+   const errors = validationResult(req);
 
-  // Checks if any validation errors were collected during request validation
-  if (!errors.isEmpty()) {
-    return res.status(422).json({
-      errors: errors.array(),
-    });
-  }
+   // Checks if any validation errors were collected during request validation
+   if (!errors.isEmpty()) {
+      return res.status(422).json({
+         errors: errors.array(),
+      });
+   }
 
-  next();
+   next();
 };

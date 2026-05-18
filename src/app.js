@@ -18,7 +18,7 @@ const csrfProtection = csurf();
 
 const SESSION_EXPIRE_DAYS = 1;
 
-console.log(process.env);
+
 const app = express();
 
 const MongoDBStoreSession = MongoDBStore(session);
