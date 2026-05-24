@@ -7,6 +7,7 @@ import session from "express-session";
 import users from "./routers/user.router.js";
 import auth from "./routers/auth.router.js";
 import decks from "./routers/deck.router.js";
+import cards from "./routers/card.router.js";
 import MongoDBStore from "connect-mongodb-session";
 
 import csurf from "csurf";
@@ -29,7 +30,9 @@ const store = new MongoDBStoreSession({
    expires: 1000 * 60 * 60 * 3,
 });
 
-app.use(express.json());
+app.use(express.json(
+   {limit: "1mb"},
+));
 
 app.use(
    session({
@@ -59,6 +62,8 @@ app.use("/authentication", auth);
 app.use("/users", users);
 
 app.use("/decks", decks);
+
+app.use("/cards", cards);
 
 app.use(errorHandler);
 

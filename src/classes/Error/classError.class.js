@@ -22,8 +22,6 @@ export class ClassError extends AppError {
       return new ClassError(message, data, entity);
    }
 
-   
-
    toJSON() {
       return {
          ...super.toJSON(),
