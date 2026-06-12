@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { Deck } from "../classes/Deck/deck.class.js"; 
+import { Deck } from "../classes/Deck/deck.class.js";
 import { DeckRepository } from "../classes/Deck/deck.repository.class.js";
 import { HttpError } from "../classes/Error/httpError.class.js";
 
@@ -20,16 +20,16 @@ import { HttpError } from "../classes/Error/httpError.class.js";
 const createDeck = async (props, deckRepository, userRepository) => {
    const id = props.id;
 
-  /*  if (!props.authorId) {
+   /*  if (!props.authorId) {
       throw HttpError.badRequest("Author ID is required");
    }
  */
    // Generates a new identifier if not provided externally
    if (!id) props.id = new ObjectId().toString();
-   
+
    const deck = new Deck(props);
 
-   const result = await deckRepository.create(deck);    
+   const result = await deckRepository.create(deck);
 
    // Updates user's deck counter
    await userRepository.incrementDeckCount(deck.authorId, 1);

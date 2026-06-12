@@ -2,35 +2,63 @@ import bcrypt from "bcrypt";
 import { UserService } from "./user.service.js";
 import { HttpError } from "../classes/Error/httpError.class.js";
 
-
+/**
+ * Authenticates a user using
+ * email and password credentials.
+ *
+ * On successful authentication:
+ * - updates the user's last login timestamp
+ * - returns the authenticated user
+ *
+ * @param {{
+ *    email: string,
+ *    password: string,
+ * }} credentials
+ *
+ * @param {UserRepository} userRepository
+ *
+ * @returns {Promise<User>}
+ */
 const login = async ({ email, password }, userRepository) => {
-   const invalidCredentials = () => HttpError.unauthorized("Invalid credentials");
-
-   if (typeof email !== "string" || !email || typeof password !== "string" || !password) {
-      throw invalidCredentials();
-   }
-
    const user = await userRepository.findByEmail(email);
-
-   if (!user) {
-      throw invalidCredentials();
-   }
 
    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
 
    if (!isValidPassword) {
-      throw invalidCredentials();
+      throw HttpError.unauthorized("Invalid credentials");
    }
 
    const lastLogin = new Date();
 
-   await userRepository.update(user.id, { lastLogin });
+   await userRepository.update(user.id, {
+      lastLogin,
+   });
 
    user.lastLogin = lastLogin;
 
    return user;
 };
 
+/**
+ * Returns the authenticated user
+ * associated with the current session.
+ *
+ * Ensures that:
+ * - the session contains a valid user identifier
+ * - the referenced user still exists
+ *
+ * Invalid sessions are automatically
+ * destroyed before an unauthorized
+ * error is thrown.
+ *
+ * @param {{
+ *    session: import("express-session").Session
+ * }} context
+ *
+ * @param {UserRepository} userRepository
+ *
+ * @returns {Promise<User>}
+ */
 const loginCheck = async ({ session }, userRepository) => {
    const { userId } = session;
 
@@ -42,6 +70,7 @@ const loginCheck = async ({ session }, userRepository) => {
 
    if (!user) {
       session.destroy?.();
+
       throw HttpError.unauthorized("Session invalid");
    }
 
@@ -49,29 +78,23 @@ const loginCheck = async ({ session }, userRepository) => {
 };
 
 /**
+ * Creates a new user account.
  *
- * @param {*} props
+ * Assumes that all request validation
+ * has already been completed by the
+ * validation middleware chain.
+ *
+ * @param {object} props
  * @param {UserRepository} userRepository
+ *
+ * @returns {Promise<User>}
  */
 const signup = async (props, userRepository) => {
    const { confirmPassword, ...userData } = props;
 
-   if (!userData.password) {
-      throw HttpError.unprocessable("Password is required");
-   }
-
-   if (!confirmPassword) {
-      throw HttpError.unprocessable("Confirm password is required");
-   }
-
-   if (confirmPassword !== userData.password) {
-      throw HttpError.unprocessable("Passwords do not match");
-   }
-
    userData.lastLogin = new Date();
-   const user = await UserService.create(userData, userRepository);
-   console.log("User created:", user.toJSON());
-   return user
+
+   return await UserService.create(userData, userRepository);
 };
 
 export const AuthService = {

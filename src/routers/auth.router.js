@@ -1,81 +1,66 @@
 import express from "express";
-import { emailExistsValidator } from "../validators/email-exists.validator.js";
-import { body } from "express-validator";
-import { equalTo } from "../validators/equal-to.validator.js"; 
-import { AuthenticationFunctions } from "../controllers/authentication.controller.js"; 
-import { validate } from "../controllers/validator.controller.js";
-import { usedEmailValidator } from "../validators/used-email.validator.js";
+import { AuthenticationFunctions } from "../controllers/authentication.controller.js";
 import { handleResponse } from "../controllers/response.controller.js";
-
-/**
- * Validation rules for user login.
- *
- * - Validates email format and existence in the system.
- * - Ensures password is provided and meets minimum length requirements.
- */
-const loginValidator = [
-   body("email").trim().isEmail().normalizeEmail().bail().custom(emailExistsValidator()),
-
-   body("password")
-      .trim()
-      .notEmpty()
-      .withMessage("Password is required")
-      .bail()
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters"),
-];
-
-/**
- * Validation rules for user signup.
- *
- * - Validates email format and ensures it is not already used.
- * - Ensures password meets requirements.
- * - Confirms password matches confirmPassword field.
- */
-const signupValidator = [
-   body("email").trim().isEmail().normalizeEmail().bail().custom(usedEmailValidator()),
-
-   body("password")
-      .trim()
-      .notEmpty()
-      .withMessage("Password is required")
-      .bail()
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters"),
-
-   body("confirmPassword")
-      .trim()
-      .notEmpty()
-      .withMessage("Confirm password is required")
-      .bail()
-      .custom(equalTo("password")),
-];
-
+import { BodyValidators } from "../validators/body.validator.js";
+import { FieldValidators } from "../validators/field.validator.js";
+import { LOGIN_SCHEMA, SIGNUP_SCHEMA } from "./schemas/authentication.schema.js";
+import { UserValidators } from "../validators/user.validators.js";
+import { SessionValidators } from "../validators/session.validator.js";
 /** Express router instance for authentication-related routes. */
 const router = express.Router();
 
 /**
- * Returns a CSRF token for client-side usage.
+ * Returns a CSRF token for client-side requests.
  */
 router.get("/csrf-token", AuthenticationFunctions.getCSRFToken, handleResponse);
 
 /**
- * Handles user login with validation middleware.
+ * Authenticates a user and starts a session.
+ * Applies request body and credential validation.
  */
-router.post("/login", loginValidator, validate, AuthenticationFunctions.loginHandler, handleResponse);
+router.post(
+   "/login",
+   BodyValidators.requireObjectBody,
+   BodyValidators.requireNonEmptyBody,
+   FieldValidators.allowOnlyFields(LOGIN_SCHEMA.allowedFields),
+   FieldValidators.requireFields(LOGIN_SCHEMA.requiredFields),
+   FieldValidators.validateFieldTypes(LOGIN_SCHEMA.fieldTypes),
+   FieldValidators.validateEmailField("email"),
+   FieldValidators.validateFieldLengths(LOGIN_SCHEMA.fieldLengths),
+   UserValidators.requireExistingEmail("email"),
+   AuthenticationFunctions.loginHandler,
+   handleResponse,
+);
 
 /**
- * Handles user signup with validation middleware.
+ * Creates a new user account.
+ * Applies request body, field, and uniqueness validation.
  */
-router.post("/signup", signupValidator, validate, AuthenticationFunctions.signupHandler, handleResponse);
+router.post(
+   "/signup",
+   BodyValidators.requireObjectBody,
+   BodyValidators.requireNonEmptyBody,
+   FieldValidators.allowOnlyFields(SIGNUP_SCHEMA.allowedFields),
+   FieldValidators.requireFields(SIGNUP_SCHEMA.requiredFields),
+   FieldValidators.validateFieldTypes(SIGNUP_SCHEMA.fieldTypes),
+   FieldValidators.validateFieldLengths(SIGNUP_SCHEMA.fieldLengths),
+   FieldValidators.validateMatchingFields("password", "confirmPassword"),
+   FieldValidators.validateEmailField("email"),
+   UserValidators.requireUnusedEmail("email"),
+   AuthenticationFunctions.signupHandler,
+   handleResponse,
+);
 
 /**
- * Handles user logout.
+ * Logs out the currently authenticated user.
+ * Invalidates the active session.
  */
 router.post("/logout", AuthenticationFunctions.logout, handleResponse);
+
 /**
- * Returns the currently authenticated user (session check).
+ * Returns information about the currently authenticated user.
+ * Used to verify whether a valid session exists.
  */
-router.get("/me", AuthenticationFunctions.loginCheckHandler, handleResponse);
+router.get("/me",SessionValidators.requireAuthenticatedSession ,AuthenticationFunctions.loginCheckHandler, handleResponse);
 
 export default router;

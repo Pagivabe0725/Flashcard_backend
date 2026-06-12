@@ -1,56 +1,64 @@
 import express from "express";
 import { UserFunctions } from "../controllers/user.controller.js";
-import { body } from "express-validator";
-import { usedEmailValidator } from "../validators/used-email.validator.js";
-import { validate } from "../controllers/validator.controller.js";
 import { handleResponse } from "../controllers/response.controller.js";
+import { BodyValidators } from "../validators/body.validator.js";
+import { FieldValidators } from "../validators/field.validator.js";
+import { ParamsValidators } from "../validators/params.validator.js";
+import { UPDATE_USER_SCHEMA } from "./schemas/user.schema.js";
+import { UserValidators } from "../validators/user.validators.js";
+import { SessionValidators } from "../validators/session.validator.js";
 
-/** Express router instance for user-related routes. */
+/**
+ * Express router instance for user-related routes.
+ */
 const router = express.Router();
 
 /**
- * Validation rules for user creation.
+ * Updates an existing user.
  *
- * - Validates email format and ensures it is not already used.
- * - Ensures password meets minimum length requirements.
- */
-const createUserValidator = [
-   body("email").trim().isEmail().normalizeEmail().bail().custom(usedEmailValidator()),
-
-   body("password")
-      .trim()
-      .notEmpty()
-      .withMessage("Password is required")
-      .bail()
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters"),
-];
-
-/**
- * Creates a new user.
+ * Requires:
+ * - an authenticated session
+ * - a valid and existing user identifier
+ * - a non-empty object request body
  *
- * POST /users
+ * Validation:
+ * - allows only fields defined in UPDATE_USER_SCHEMA
+ * - validates field types
+ * - validates email format when provided
+ * - ensures a new email address is not already in use
+ *
+ * PATCH /users/:id
  */
-router.post(
-   "/",
-   createUserValidator,
-   validate,
-   UserFunctions.createUserHandler,
+router.patch(
+   "/:id",
+   SessionValidators.requireAuthenticatedSession,
+   BodyValidators.requireObjectBody,
+   BodyValidators.requireNonEmptyBody,
+   ParamsValidators.requireExistingUser,
+   FieldValidators.allowOnlyFields(UPDATE_USER_SCHEMA.allowedFields),
+   FieldValidators.forbidFields(["password"]),
+   FieldValidators.validateFieldTypes(UPDATE_USER_SCHEMA.fieldTypes),
+   FieldValidators.validateEmailField("email", { optional: true }),
+   UserValidators.requireUnusedEmail("email", { optional: true }),
+   UserFunctions.updateUserHandler,
    handleResponse,
 );
 
 /**
- * Updates an existing user by its identifier.
+ * Deletes an existing user.
  *
- * PATCH /users/:id
- */
-router.patch("/:id", UserFunctions.updateUserHandler, handleResponse);
-
-/**
- * Deletes a user by its identifier.
+ * Requires:
+ * - an authenticated session
+ * - a valid and existing user identifier
  *
  * DELETE /users/:id
  */
-router.delete("/:id", UserFunctions.deleteUserHandler, handleResponse);
+router.delete(
+   "/:id",
+   SessionValidators.requireAuthenticatedSession,
+   ParamsValidators.requireExistingUser,
+   UserFunctions.deleteUserHandler,
+   handleResponse,
+);
 
 export default router;

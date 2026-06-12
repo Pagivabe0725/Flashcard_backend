@@ -1,3 +1,6 @@
+/**
+ * Card-related field definitions and validation enums.
+ */
 export const CARD_FIELDS = {
    ALL_FIELDS: ["id", "deckId", "createdAt", "updatedAt", "front", "back"],
    CONSTRUCTOR: ["id", "deckId", "front", "back"],

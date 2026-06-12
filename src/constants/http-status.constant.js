@@ -1,3 +1,6 @@
+/**
+ * HTTP status code definitions used throughout the application.
+ */
 export const HTTP_STATUS = {
    OK: 200,
    CREATED: 201,
